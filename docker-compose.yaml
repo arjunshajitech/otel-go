@@ -1,0 +1,38 @@
+services:
+  otel-collector:
+    container_name: otel-collector
+    image: otel/opentelemetry-collector-contrib
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      # - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./config.yaml:/etc/otelcol/config.yaml
+    restart: always
+
+  clickhouse:
+    image: clickhouse/clickhouse-server
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_USER=root
+      - CLICKHOUSE_PASSWORD=root
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    restart: always
+
+  ch-ui:
+    image: ghcr.io/caioricciuti/ch-ui:latest
+    environment:
+      VITE_CLICKHOUSE_URL: http://localhost:8123
+      VITE_CLICKHOUSE_USER: root
+      VITE_CLICKHOUSE_PASS: root
+    ports:
+      - "5521:5521/tcp"
+    restart: always
+
+volumes:
+  clickhouse-data:

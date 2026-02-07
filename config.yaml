@@ -1,0 +1,69 @@
+receivers:
+  otlp:
+    protocols:
+      # grpc:
+      #   endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+#        traces_url_path: /otel/v1/traces
+#        metrics_url_path: /otel/v1/metrics
+#        logs_url_path: /otel/v1/logs
+      # cors:
+      #     allowed_origins:
+            # - http://test.com
+            # Origins can have wildcards with *, use * by itself to match any origin.
+            # - https://*.example.com
+
+processors:
+  batch:
+    send_batch_size : 5000
+    timeout: 5s
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000?dial_timeout=10s
+    database: otel
+    username: root
+    password: root
+    async_insert: true
+    ttl: 72h
+    compress: lz4
+    create_schema: true
+    logs_table_name: otel_logs
+    traces_table_name: otel_traces
+    timeout: 5s
+    metrics_tables:
+      gauge: 
+        name: otel_metrics_gauge
+      sum: 
+        name: otel_metrics_sum
+      summary: 
+        name: otel_metrics_summary
+      histogram: 
+        name: otel_metrics_histogram
+      exponential_histogram: 
+        name: otel_metrics_exp_histogram
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouse]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouse]
