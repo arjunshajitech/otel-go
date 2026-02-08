@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -36,14 +36,16 @@ func setupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	)
 
 	// ---- Traces ----
-	traceExporter, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	traceExporter, err := otlptracehttp.New(ctx, otlptracehttp.WithInsecure())
 	if err != nil {
-		return shutdown, err
+		panic(err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(traceExporter,
-			sdktrace.WithBatchTimeout(time.Second)),
+		sdktrace.WithBatcher(
+			traceExporter,
+			sdktrace.WithBatchTimeout(2*time.Second),
+		),
 	)
 	otel.SetTracerProvider(tp)
 	shutdowns = append(shutdowns, tp.Shutdown)
@@ -61,7 +63,7 @@ func setupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 		sdkmetric.WithReader(
 			sdkmetric.NewPeriodicReader(
 				metricExporter,
-				sdkmetric.WithInterval(time.Second),
+				sdkmetric.WithInterval(2*time.Second),
 			),
 		),
 	)
@@ -69,9 +71,9 @@ func setupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	shutdowns = append(shutdowns, mp.Shutdown)
 
 	// ---- Logs ----
-	logExporter, err := stdoutlog.New(stdoutlog.WithPrettyPrint())
+	logExporter, err := otlploghttp.New(ctx, otlploghttp.WithInsecure())
 	if err != nil {
-		return shutdown, err
+		panic(err)
 	}
 
 	lp := sdklog.NewLoggerProvider(
